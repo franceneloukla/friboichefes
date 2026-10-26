@@ -36,6 +36,9 @@ except Exception:  # pragma: no cover
 
 REPO = os.environ.get("CLIENTES_REPO", "franceneloukla/0000001336")
 TOKEN = os.environ.get("CLIENTES_TOKEN", "")
+PUBLICO = os.environ.get("CLIENTES_PUBLICO", "0") == "1"
+CHAVE = os.environ.get("CLIENTES_KEY", "")
+BRANCH = os.environ.get("CLIENTES_BRANCH", "main")
 CACHE_SECONDS = 60
 _cache: dict[str, tuple[float, dict | None]] = {}
 
@@ -58,34 +61,53 @@ PAGE = """<!doctype html>
 </div></body></html>"""
 
 
+def _decifrar(payload: dict) -> dict:
+    """Abre o JSON cifrado pelo bot (AES-256-GCM, chave = sha256(CLIENTES_KEY))."""
+    import base64
+    import hashlib
+
+    from cryptography.hazmat.primitives.ciphers.aead import AESGCM
+
+    key = hashlib.sha256(CHAVE.encode("utf-8")).digest()
+    iv = base64.b64decode(payload["iv"])
+    tag = base64.b64decode(payload["tag"])
+    dados = base64.b64decode(payload["data"])
+    return json.loads(AESGCM(key).decrypt(iv, dados + tag, None).decode("utf-8"))
+
+
 def _fetch(doc: str) -> dict | None:
-    """Lê clientes/<doc>.json do repositório privado (com cache curto)."""
+    """Lê clientes/<doc>.json (repo privado com token, ou público cifrado)."""
     agora = time.time()
     cache = _cache.get(doc)
     if cache and agora - cache[0] < CACHE_SECONDS:
         return cache[1]
 
-    if not TOKEN:
-        raise HTTPException(status_code=503, detail="Integração não configurada")
-
-    url = f"https://api.github.com/repos/{REPO}/contents/clientes/{doc}.json"
-    req = urllib.request.Request(
-        url,
-        headers={
+    if PUBLICO:
+        if not CHAVE:
+            raise HTTPException(status_code=503, detail="CLIENTES_KEY não configurada")
+        url = f"https://raw.githubusercontent.com/{REPO}/{BRANCH}/clientes/{doc}.json"
+        headers = {"User-Agent": "friboi-site"}
+    else:
+        if not TOKEN:
+            raise HTTPException(status_code=503, detail="Integração não configurada")
+        url = f"https://api.github.com/repos/{REPO}/contents/clientes/{doc}.json"
+        headers = {
             "Authorization": f"Bearer {TOKEN}",
             "Accept": "application/vnd.github.raw+json",
             "User-Agent": "friboi-site",
-        },
-    )
+        }
+
+    req = urllib.request.Request(url, headers=headers)
     try:
         with urllib.request.urlopen(req, timeout=10) as resp:
-            data = json.loads(resp.read().decode("utf-8"))
+            bruto = json.loads(resp.read().decode("utf-8"))
     except urllib.error.HTTPError as err:
         if err.code == 404:
-            data = None
+            bruto = None
         else:
             raise HTTPException(status_code=502, detail="Falha ao consultar os cadastros") from err
 
+    data = _decifrar(bruto) if bruto and bruto.get("alg") == "A256GCM" else bruto
     _cache[doc] = (agora, data)
     return data
 
