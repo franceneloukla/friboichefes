@@ -1,60 +1,41 @@
 # Integração com o bot do WhatsApp
 
-O bot de atendimento grava cada cadastro em `clientes/<documento>.json` num
-repositório **privado** (hoje `franceneloukla/0000001336`), porque esses arquivos
-têm dado pessoal (CPF/CNPJ, endereço, telefone, CEP) e este repositório do site é público.
+O bot grava cada cadastro em `clientes/<documento>.json` no repositório
+`franceneloukla/friboichefes`. O arquivo é **JSON cifrado** (AES-256-GCM):
+quem abre no GitHub vê `{"v":1,"alg":"A256GCM","iv":...,"tag":...,"data":...}`,
+e só o site consegue decifrar.
 
-## O que já está pronto
+## Ativar
 
-- `server/clientes_portal.py` — lê o JSON do repositório privado (no servidor) e mostra
-  a ficha do cliente na página **/meus-dados** e no endpoint **/api/cliente/meus-dados**.
-- O bot grava o arquivo depois que o cliente confirma os dados no WhatsApp.
+1. `server/clientes_portal.py` já está no repositório.
+2. Em `server/app.py`, depois de criar o `app`:
 
-## Ativar (2 linhas)
+   ```python
+   from .clientes_portal import router as clientes_router
+   app.include_router(clientes_router)
+   ```
 
-Em `server/app.py`, após a criação do `app`:
+3. `requirements.txt`: adicionar `cryptography` (tem wheel para cp314).
 
-```python
-from .clientes_portal import router as clientes_router
-app.include_router(clientes_router)
-```
+4. Variáveis de ambiente no Vercel:
 
-Variáveis de ambiente (Vercel → Settings → Environment Variables):
-
-| Variável | Exemplo |
+| Variável | Valor |
 |---|---|
-| `CLIENTES_REPO` | `franceneloukla/0000001336` |
-| `CLIENTES_TOKEN` | token fine-grained, **somente leitura** de Contents |
+| `CLIENTES_REPO` | `franceneloukla/friboichefes` |
+| `CLIENTES_PUBLICO` | `1` |
+| `CLIENTES_KEY` | a mesma chave configurada no bot |
+| `CLIENTES_TOKEN` | opcional — só se optarem pelo repositório privado |
 
-Coloque o link no menu: `<a href="/meus-dados">Meus dados</a>`.
+5. Link: `<a href="/meus-dados">Meus dados</a>`.
 
-## Formato do arquivo
+## Páginas
 
-```json
-{
-  "documento": "12345678909",
-  "tipo_documento": "CPF",
-  "documento_formatado": "123.456.789-09",
-  "nome": "Carlos Souza",
-  "telefone": "5547999998888",
-  "cidade": "Joinville",
-  "bairro": "Centro",
-  "endereco": "Rua das Palmeiras, 120",
-  "cep": "89201-000",
-  "banco": "Santander",
-  "estabelecimento": "Açougue",
-  "plano": "1200",
-  "pagamento": "30 dias no boleto",
-  "desconto_correntista": 7,
-  "status": "cadastro_concluido",
-  "ativacao": { "pago": false, "valor": "1.00", "txid": "" }
-}
-```
+- `GET /meus-dados` — ficha do usuário logado (nome, CPF, telefone, endereço, CEP,
+  banco, plano, pagamento, desconto, situação da ativação)
+- `GET /api/cliente/meus-dados` — o mesmo em JSON
 
-## Login por CPF/CNPJ
+## Por que cifrado
 
-O login atual do site é e-mail + senha, então `/meus-dados` usa o CPF do usuário
-logado. Se vocês quiserem "entrar só com CPF", o caminho seguro é confirmar um
-código enviado no WhatsApp do cadastro — é o que o portal do bot já faz
-(`/portal`, código de 6 dígitos). Sem esse segundo fator, qualquer pessoa que
-soubesse um CPF veria nome, endereço e telefone de outra.
+O repositório é público. Sem cifra, CPF, endereço e telefone de todos os clientes
+ficariam legíveis para qualquer pessoa (e indexáveis). Com a chave só no servidor,
+o arquivo continua sendo JSON versionado, mas o dado pessoal não fica exposto.
