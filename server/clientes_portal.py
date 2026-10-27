@@ -40,6 +40,11 @@ except Exception:  # pragma: no cover
 TEMPLATES_DIR = Path(__file__).resolve().parent / "templates"
 templates = Jinja2Templates(directory=str(TEMPLATES_DIR)) if Jinja2Templates else None
 
+try:  # gera o copia-e-cola da taxa de ativação
+    from .pix import build_pix, VALOR_ATIVACAO
+except ImportError:  # módulo solto
+    from pix import build_pix, VALOR_ATIVACAO  # type: ignore[no-redef]
+
 try:  # mesma lib do site
     from jose import JWTError, jwt
 except Exception:  # pragma: no cover
@@ -219,7 +224,12 @@ def meus_dados(request: Request):
     cliente = _fetch(doc)
     if not cliente:
         return _render(request, {"cliente": None, "erro": "Não encontramos cadastro para esse CPF/CNPJ."}, 404)
-    return _render(request, {"cliente": cliente, "linhas": _linhas(cliente)})
+    pago = bool((cliente.get("ativacao") or {}).get("pago"))
+    pix = "" if pago else build_pix(txid=f"ATIV{doc[:10]}")
+    return _render(
+        request,
+        {"cliente": cliente, "linhas": _linhas(cliente), "pago": pago, "pix": pix, "valor": VALOR_ATIVACAO.replace(".", ",")},
+    )
 
 
 @router.get("/meus-dados/sair")

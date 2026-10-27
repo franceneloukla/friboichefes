@@ -42,6 +42,39 @@
         </tbody>
       </table>
 
+      {% if pago %}
+        <div class="form-alert" style="background:#e8f7ee;color:#166534;border-color:#bbf7d0" role="status">
+          ✅ Cadastro ativado — nota fiscal liberada e desconto de correntista ativo.
+        </div>
+      {% else %}
+        <div style="margin-top:22px;padding:18px;border:1px solid #e5e7eb;border-radius:12px;background:#fafafa">
+          <h2 style="font-size:16px;margin:0 0 6px">Ativação do plano — R$ {{ valor }}</h2>
+          <p style="font-size:13px;color:#6b7280;margin:0 0 12px;line-height:1.5">
+            Taxa única de <b>R$ {{ valor }}</b> para emissão da nota fiscal e ativação do
+            <b>desconto de 7%</b> para correntistas de banco parceiro.
+          </p>
+          <p style="font-size:13px;color:#374151;margin:0 0 6px"><b>Pix (CNPJ):</b> 02.916.265/0001-60 — Friboi</p>
+          <textarea id="pixcode" readonly rows="4"
+                    style="width:100%;font-family:ui-monospace,monospace;font-size:11px;padding:10px;border:1px dashed #d1d5db;border-radius:8px;background:#fff;box-sizing:border-box">{{ pix }}</textarea>
+          <button type="button" class="btn-primary" id="copiar" style="width:100%;margin-top:10px">Copiar chave Pix</button>
+          <p style="font-size:12px;color:#6b7280;margin:10px 0 0">
+            Depois de pagar, envie o comprovante no WhatsApp para liberar a ativação.
+          </p>
+        </div>
+        <script>
+          document.getElementById('copiar').addEventListener('click', async function () {
+            var area = document.getElementById('pixcode');
+            try {
+              await navigator.clipboard.writeText(area.value);
+            } catch (e) {
+              area.select();
+              document.execCommand('copy');
+            }
+            this.textContent = 'Chave copiada ✅';
+          });
+        </script>
+      {% endif %}
+
       <p class="auth-alt" style="margin-top:18px">
         <a href="/meus-dados/sair" style="color:#6c757d;font-weight:400">sair</a>
       </p>
