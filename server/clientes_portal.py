@@ -80,7 +80,7 @@ def _fetch(doc: str) -> dict | None:
 
     if PUBLICO:
         if not CHAVE:
-            raise HTTPException(status_code=503, detail="CLIENTES_KEY não configurada")
+            return None  # sem chave não há como decifrar — tratado nas rotas
         url = f"https://raw.githubusercontent.com/{REPO}/{BRANCH}/clientes/{doc}.json"
         headers = {"User-Agent": "friboi-site"}
     else:
@@ -177,8 +177,16 @@ FORM = """<form method="post" action="/api/cliente/acesso">
 </form>"""
 
 
+AVISO_CONFIG = (
+    '<div class="erro">O acesso aos dados ainda não está configurado no servidor '
+    '(falta a variável CLIENTES_KEY). Fale com o suporte.</div>'
+)
+
+
 @router.get("/meus-dados", response_class=HTMLResponse)
 def meus_dados(request: Request):
+    if PUBLICO and not CHAVE:
+        return HTMLResponse(PAGE.replace("__CONTEUDO__", AVISO_CONFIG), status_code=503)
     doc = _doc_da_sessao(request)
     if not doc:
         return HTMLResponse(PAGE.replace("__CONTEUDO__", FORM.replace("{erro}", "")))
