@@ -40,10 +40,13 @@ except Exception:  # pragma: no cover
 TEMPLATES_DIR = Path(__file__).resolve().parent / "templates"
 templates = Jinja2Templates(directory=str(TEMPLATES_DIR)) if Jinja2Templates else None
 
-try:  # gera o copia-e-cola da taxa de ativação
-    from .pix import build_pix, VALOR_ATIVACAO
+try:  # valor da taxa de ativação
+    from .pix import VALOR_ATIVACAO, PIX_CHAVE
 except ImportError:  # módulo solto
-    from pix import build_pix, VALOR_ATIVACAO  # type: ignore[no-redef]
+    from pix import VALOR_ATIVACAO, PIX_CHAVE  # type: ignore[no-redef]
+
+CHAVE_PIX = PIX_CHAVE
+CHAVE_PIX_FMT = "02.916.265/0001-60"
 
 try:  # mesma lib do site
     from jose import JWTError, jwt
@@ -233,10 +236,16 @@ def meus_dados(request: Request):
     if not cliente:
         return _render(request, {"cliente": None, "erro": "Não encontramos cadastro para esse CPF/CNPJ."}, 404)
     pago = bool((cliente.get("ativacao") or {}).get("pago"))
-    pix = "" if pago else build_pix(txid=f"ATIV{doc[:10]}")
     return _render(
         request,
-        {"cliente": cliente, "linhas": _linhas(cliente), "pago": pago, "pix": pix, "valor": VALOR_ATIVACAO.replace(".", ",")},
+        {
+            "cliente": cliente,
+            "linhas": _linhas(cliente),
+            "pago": pago,
+            "valor": VALOR_ATIVACAO.replace(".", ","),
+            "chave_pix": CHAVE_PIX,
+            "chave_pix_fmt": CHAVE_PIX_FMT,
+        },
     )
 
 

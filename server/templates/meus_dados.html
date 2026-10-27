@@ -53,19 +53,24 @@
             Taxa única de <b>R$ {{ valor }}</b> para emissão da nota fiscal e ativação do
             <b>desconto de 7%</b> para correntistas de banco parceiro.
           </p>
-          <p style="font-size:13px;color:#374151;margin:0 0 6px"><b>Pix (CNPJ):</b> 02.916.265/0001-60 — Friboi</p>
-          <textarea id="pixcode" readonly rows="4"
-                    style="width:100%;font-family:ui-monospace,monospace;font-size:11px;padding:10px;border:1px dashed #d1d5db;border-radius:8px;background:#fff;box-sizing:border-box">{{ pix }}</textarea>
-          <button type="button" class="btn-primary" id="copiar" style="width:100%;margin-top:10px">Copiar chave Pix</button>
+          <label style="display:block;font-size:12px;color:#374151;font-weight:600;margin:0 0 6px">Pix (CNPJ)</label>
+          <div style="display:flex;gap:8px;align-items:center">
+            <input id="pixcnpj" readonly value="{{ chave_pix_fmt }}"
+                   style="flex:1;font-family:ui-monospace,monospace;font-size:15px;padding:11px 12px;border:1px dashed #d1d5db;border-radius:8px;background:#fff;box-sizing:border-box">
+            <button type="button" class="btn-primary" id="copiar"
+                    style="width:auto;margin:0;padding:11px 16px;white-space:nowrap">Copiar</button>
+          </div>
+          <input type="hidden" id="pixdigits" value="{{ chave_pix }}">
           <p style="font-size:12px;color:#6b7280;margin:10px 0 0">
             Depois de pagar, envie o comprovante no WhatsApp para liberar a ativação.
           </p>
         </div>
         <script>
           document.getElementById('copiar').addEventListener('click', async function () {
-            var area = document.getElementById('pixcode');
+            var area = document.getElementById('pixcnpj');
+            var chave = document.getElementById('pixdigits').value || area.value;
             try {
-              await navigator.clipboard.writeText(area.value);
+              await navigator.clipboard.writeText(chave);
             } catch (e) {
               area.select();
               document.execCommand('copy');
