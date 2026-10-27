@@ -156,6 +156,12 @@ def _doc_da_sessao(request: Request) -> str | None:
     return doc if len(doc) in (11, 14) else None
 
 
+MENSAGENS = {
+    "digitos": "Digite um CPF (11 dígitos) ou CNPJ (14 dígitos).",
+    "nao_encontrado": "Não encontramos cadastro para esse CPF/CNPJ. Confira os números ou fale com o atendimento.",
+}
+
+
 def _render(request: Request, contexto: dict, status_code: int = 200) -> HTMLResponse:
     if templates is None:
         return HTMLResponse(PAGE.replace("__CONTEUDO__", ""), status_code=status_code)
@@ -219,9 +225,10 @@ FORM = """<form method="post" action="/api/cliente/acesso">
 
 @router.get("/meus-dados", response_class=HTMLResponse)
 def meus_dados(request: Request):
+    erro = MENSAGENS.get(str(request.query_params.get("erro", "")))
     doc = _doc_da_sessao(request)
     if not doc:
-        return _render(request, {"cliente": None, "erro": None})
+        return _render(request, {"cliente": None, "erro": erro})
     cliente = _fetch(doc)
     if not cliente:
         return _render(request, {"cliente": None, "erro": "Não encontramos cadastro para esse CPF/CNPJ."}, 404)
@@ -253,12 +260,18 @@ async def acesso(request: Request):
         form = await request.form()
         doc = _norm(str(form.get("documento", "")))
 
+    # erros voltam para /meus-dados (URL limpa), ou JSON para clientes de API
+    quer_json = "application/json" in request.headers.get("accept", "")
     if len(doc) not in (11, 14):
-        return _render(request, {"cliente": None, "erro": "Digite um CPF (11 dígitos) ou CNPJ (14 dígitos)."}, 400)
+        if quer_json:
+            raise HTTPException(status_code=400, detail=MENSAGENS["digitos"])
+        return RedirectResponse("/meus-dados?erro=digitos", status_code=303)
 
     cliente = _fetch(doc)
     if not cliente:
-        return _render(request, {"cliente": None, "erro": "Não encontramos cadastro para esse CPF/CNPJ."}, 404)
+        if quer_json:
+            raise HTTPException(status_code=404, detail=MENSAGENS["nao_encontrado"])
+        return RedirectResponse("/meus-dados?erro=nao_encontrado", status_code=303)
 
     resp = RedirectResponse("/meus-dados", status_code=303)
     resp.set_cookie(COOKIE, _token(doc), max_age=TTL, httponly=True, samesite="lax", path="/")
