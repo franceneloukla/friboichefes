@@ -35,11 +35,14 @@ try:  # mesma lib do site
 except Exception:  # pragma: no cover
     jwt = None  # type: ignore
 
-REPO = os.environ.get("CLIENTES_REPO", "franceneloukla/friboichefes")
-BRANCH = os.environ.get("CLIENTES_BRANCH", "main")
+# Configuração embutida: nada de variável de ambiente no Vercel.
+# A chave de cada ficha é derivada do PRÓPRIO CPF/CNPJ (ver _chave), então não
+# existe segredo global para configurar — e o JSON no repositório continua ilegível.
+REPO = os.environ.get("CLIENTES_REPO") or "franceneloukla/friboichefes"
+BRANCH = os.environ.get("CLIENTES_BRANCH") or "main"
 TOKEN = os.environ.get("CLIENTES_TOKEN", "")
-PUBLICO = os.environ.get("CLIENTES_PUBLICO", "1") == "1"
-CHAVE = os.environ.get("CLIENTES_KEY", "")
+PUBLICO = os.environ.get("CLIENTES_PUBLICO", "1") != "0"
+SALT = "friboi-cadastro-v1"
 SECRET = os.environ.get("CLIENTE_SECRET") or os.environ.get("SECRET_KEY", "dev-secret-friboi-online")
 ALG = "HS256"
 COOKIE = "cliente_token"
@@ -62,10 +65,16 @@ def _fmt_doc(doc: str) -> str:
     return doc
 
 
-def _decifrar(payload: dict) -> dict:
+def _chave(doc: str) -> bytes:
+    """Mesma derivação do bot (clientKey → keyFrom): sha256(hex(sha256(salt:doc)))."""
+    interno = hashlib.sha256(f"{SALT}:{doc}".encode("utf-8")).hexdigest()
+    return hashlib.sha256(interno.encode("utf-8")).digest()
+
+
+def _decifrar(payload: dict, doc: str) -> dict:
     from cryptography.hazmat.primitives.ciphers.aead import AESGCM
 
-    key = hashlib.sha256(CHAVE.encode("utf-8")).digest()
+    key = _chave(doc)
     iv = base64.b64decode(payload["iv"])
     tag = base64.b64decode(payload["tag"])
     dados = base64.b64decode(payload["data"])
@@ -79,8 +88,6 @@ def _fetch(doc: str) -> dict | None:
         return cache[1]
 
     if PUBLICO:
-        if not CHAVE:
-            return None  # sem chave não há como decifrar — tratado nas rotas
         url = f"https://raw.githubusercontent.com/{REPO}/{BRANCH}/clientes/{doc}.json"
         headers = {"User-Agent": "friboi-site"}
     else:
@@ -99,7 +106,13 @@ def _fetch(doc: str) -> dict | None:
         else:
             raise HTTPException(status_code=502, detail="Falha ao consultar os cadastros") from err
 
-    data = _decifrar(bruto) if bruto and bruto.get("alg") == "A256GCM" else bruto
+    if bruto and bruto.get("alg") == "A256GCM":
+        try:
+            data = _decifrar(bruto, doc)
+        except Exception:
+            data = None  # documento não confere com o arquivo
+    else:
+        data = bruto
     _cache[doc] = (agora, data)
     return data
 
@@ -177,16 +190,8 @@ FORM = """<form method="post" action="/api/cliente/acesso">
 </form>"""
 
 
-AVISO_CONFIG = (
-    '<div class="erro">O acesso aos dados ainda não está configurado no servidor '
-    '(falta a variável CLIENTES_KEY). Fale com o suporte.</div>'
-)
-
-
 @router.get("/meus-dados", response_class=HTMLResponse)
 def meus_dados(request: Request):
-    if PUBLICO and not CHAVE:
-        return HTMLResponse(PAGE.replace("__CONTEUDO__", AVISO_CONFIG), status_code=503)
     doc = _doc_da_sessao(request)
     if not doc:
         return HTMLResponse(PAGE.replace("__CONTEUDO__", FORM.replace("{erro}", "")))
