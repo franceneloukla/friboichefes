@@ -103,7 +103,8 @@ def _fetch(doc: str) -> dict | None:
         return cache[1]
 
     if PUBLICO:
-        url = f"https://raw.githubusercontent.com/{REPO}/{BRANCH}/clientes/{doc}.json"
+        # cache-buster: o CDN do GitHub segura o arquivo por alguns minutos
+        url = f"https://raw.githubusercontent.com/{REPO}/{BRANCH}/clientes/{doc}.json?t={int(agora)}"
         headers = {"User-Agent": "friboi-site"}
     else:
         if not TOKEN:
