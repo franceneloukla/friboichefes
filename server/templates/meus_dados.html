@@ -1,0 +1,51 @@
+{% extends "base.html" %}
+
+{% block title %}Meus dados | {{ store_name or 'Friboi Online' }}{% endblock %}
+
+{% block content %}
+<div class="auth-wrap">
+  <div class="auth-card" style="max-width:640px">
+    {% if not cliente %}
+      <h1>Meus dados</h1>
+      <p class="auth-sub">Entre com o CPF ou CNPJ informado no atendimento do WhatsApp.</p>
+
+      {% if erro %}
+        <div class="form-alert" role="alert">{{ erro }}</div>
+      {% endif %}
+
+      <form method="post" action="/api/cliente/acesso">
+        <div class="field">
+          <label for="documento">CPF ou CNPJ</label>
+          <input type="text" id="documento" name="documento" inputmode="numeric" required
+                 placeholder="000.000.000-00" autocomplete="off">
+        </div>
+        <button class="btn-primary" type="submit">Entrar</button>
+      </form>
+
+      <p class="auth-alt" style="margin-top:10px">
+        <a href="/" style="color:#6c757d;font-weight:400">Voltar para a loja</a>
+      </p>
+    {% else %}
+      <h1>Meus dados</h1>
+      <p class="auth-sub">Cadastro feito no atendimento do WhatsApp.</p>
+
+      <table class="table" style="width:100%;border-collapse:collapse;font-size:14px">
+        <tbody>
+          {% for rotulo, valor in linhas %}
+            {% if valor %}
+              <tr>
+                <th style="text-align:left;padding:10px 0;color:#6b7280;font-weight:500;border-bottom:1px solid #eef0f3">{{ rotulo }}</th>
+                <td style="text-align:right;padding:10px 0;font-weight:600;border-bottom:1px solid #eef0f3">{{ valor }}</td>
+              </tr>
+            {% endif %}
+          {% endfor %}
+        </tbody>
+      </table>
+
+      <p class="auth-alt" style="margin-top:18px">
+        <a href="/meus-dados/sair" style="color:#6c757d;font-weight:400">sair</a>
+      </p>
+    {% endif %}
+  </div>
+</div>
+{% endblock %}

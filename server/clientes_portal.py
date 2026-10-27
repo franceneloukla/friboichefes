@@ -27,8 +27,18 @@ import urllib.parse
 import urllib.request
 from datetime import datetime, timedelta, timezone
 
+from pathlib import Path
+
 from fastapi import APIRouter, HTTPException, Request
 from fastapi.responses import HTMLResponse, RedirectResponse
+
+try:
+    from fastapi.templating import Jinja2Templates
+except Exception:  # pragma: no cover
+    Jinja2Templates = None  # type: ignore
+
+TEMPLATES_DIR = Path(__file__).resolve().parent / "templates"
+templates = Jinja2Templates(directory=str(TEMPLATES_DIR)) if Jinja2Templates else None
 
 try:  # mesma lib do site
     from jose import JWTError, jwt
@@ -140,7 +150,18 @@ def _doc_da_sessao(request: Request) -> str | None:
     return doc if len(doc) in (11, 14) else None
 
 
-def _linhas(c: dict) -> str:
+def _render(request: Request, contexto: dict, status_code: int = 200) -> HTMLResponse:
+    if templates is None:
+        return HTMLResponse(PAGE.replace("__CONTEUDO__", ""), status_code=status_code)
+    return templates.TemplateResponse(
+        request,
+        "meus_dados.html",
+        {"user": None, "cart": {}, "categories": [], "current_path": str(request.url.path), **contexto},
+        status_code=status_code,
+    )
+
+
+def _linhas(c: dict) -> list[tuple[str, str]]:
     pares = [
         ("Nome", c.get("nome")),
         (c.get("tipo_documento") or "Documento", c.get("documento_formatado") or _fmt_doc(c.get("documento", ""))),
@@ -155,7 +176,7 @@ def _linhas(c: dict) -> str:
         ("Desconto correntista", f"{c['desconto_correntista']}% no 1º pedido" if c.get("desconto_correntista") else None),
         ("Situação", "Cadastro ativado" if (c.get("ativacao") or {}).get("pago") else "Aguardando ativação"),
     ]
-    return "".join(f'<div class="row"><span>{k}</span><span>{v}</span></div>' for k, v in pares if v)
+    return [(k, v) for k, v in pares if v]
 
 
 PAGE = """<!doctype html>
@@ -194,13 +215,11 @@ FORM = """<form method="post" action="/api/cliente/acesso">
 def meus_dados(request: Request):
     doc = _doc_da_sessao(request)
     if not doc:
-        return HTMLResponse(PAGE.replace("__CONTEUDO__", FORM.replace("{erro}", "")))
+        return _render(request, {"cliente": None, "erro": None})
     cliente = _fetch(doc)
     if not cliente:
-        body = FORM.replace("{erro}", '<div class="erro">Não encontramos cadastro para esse CPF/CNPJ.</div>')
-        return HTMLResponse(PAGE.replace("__CONTEUDO__", body), status_code=404)
-    corpo = "<div>" + _linhas(cliente) + '</div><a class="sair" href="/meus-dados/sair">sair</a>'
-    return HTMLResponse(PAGE.replace("__CONTEUDO__", corpo))
+        return _render(request, {"cliente": None, "erro": "Não encontramos cadastro para esse CPF/CNPJ."}, 404)
+    return _render(request, {"cliente": cliente, "linhas": _linhas(cliente)})
 
 
 @router.get("/meus-dados/sair")
@@ -224,13 +243,11 @@ async def acesso(request: Request):
         doc = _norm(str(form.get("documento", "")))
 
     if len(doc) not in (11, 14):
-        body = FORM.replace("{erro}", '<div class="erro">Digite um CPF (11 dígitos) ou CNPJ (14 dígitos).</div>')
-        return HTMLResponse(PAGE.replace("__CONTEUDO__", body), status_code=400)
+        return _render(request, {"cliente": None, "erro": "Digite um CPF (11 dígitos) ou CNPJ (14 dígitos)."}, 400)
 
     cliente = _fetch(doc)
     if not cliente:
-        body = FORM.replace("{erro}", '<div class="erro">Não encontramos cadastro para esse CPF/CNPJ.</div>')
-        return HTMLResponse(PAGE.replace("__CONTEUDO__", body), status_code=404)
+        return _render(request, {"cliente": None, "erro": "Não encontramos cadastro para esse CPF/CNPJ."}, 404)
 
     resp = RedirectResponse("/meus-dados", status_code=303)
     resp.set_cookie(COOKIE, _token(doc), max_age=TTL, httponly=True, samesite="lax", path="/")
