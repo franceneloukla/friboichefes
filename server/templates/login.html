@@ -30,6 +30,22 @@
       <button class="btn-primary" type="submit" data-submit>Entrar</button>
     </form>
 
+    <div style="display:flex;align-items:center;gap:12px;margin:22px 0 8px;color:#9ca3af;font-size:13px">
+      <span style="flex:1;height:1px;background:#e5e7eb"></span> ou <span style="flex:1;height:1px;background:#e5e7eb"></span>
+    </div>
+
+    <form method="post" action="/api/cliente/acesso">
+      <div class="field">
+        <label for="documento">CPF ou CNPJ do cadastro</label>
+        <input type="text" id="documento" name="documento" inputmode="numeric" required
+               placeholder="000.000.000-00" autocomplete="off">
+      </div>
+      <button class="btn-primary" type="submit">Entrar com CPF/CNPJ</button>
+    </form>
+    <p class="auth-alt" style="margin-top:10px">
+      <a href="/meus-dados" style="color:#6c757d;font-weight:400">Ver meus dados do cadastro</a>
+    </p>
+
     <p class="auth-alt">Ainda não tem conta? <a href="/cadastro">Cadastre-se</a></p>
     <p class="auth-alt" style="margin-top:8px">
       <a href="/carrinho" style="color:#6c757d;font-weight:400">Continuar sem login</a>

@@ -28,6 +28,13 @@ e só o site consegue decifrar.
 
 5. Link: `<a href="/meus-dados">Meus dados</a>`.
 
+## Login por CPF/CNPJ
+
+- `/meus-dados` mostra o formulário; o cliente digita o CPF (11) ou CNPJ (14) e entra.
+- `POST /api/cliente/acesso` valida, busca `clientes/<documento>.json`, decifra e grava o cookie
+  `cliente_token` (JWT HS256, 7 dias, httpOnly).
+- O botão **Entrar com CPF/CNPJ** também aparece em `/login`.
+
 ## Páginas
 
 - `GET /meus-dados` — ficha do usuário logado (nome, CPF, telefone, endereço, CEP,

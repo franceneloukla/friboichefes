@@ -158,6 +158,14 @@ def _brl(value: Any) -> str:
 
 templates.env.filters["brl"] = _brl
 
+# Acesso do cliente por CPF/CNPJ (dados do cadastro feito no WhatsApp)
+try:  # pacote
+    from .clientes_portal import router as clientes_router
+except ImportError:  # módulo solto
+    from clientes_portal import router as clientes_router  # type: ignore[no-redef]
+
+app.include_router(clientes_router)
+
 def mount_if_dir(route: str, directory: Path, name: str) -> bool:
     """Monta um StaticFiles apenas se o diretório existir.
 
